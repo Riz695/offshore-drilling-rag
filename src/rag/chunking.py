@@ -26,4 +26,15 @@ def chunk_pages(
     size: int = 500,
     overlap: int = 50,
 ) -> list[Chunk]:
-    raise NotImplementedError("Next step: chunk_pages")
+    chunks: list[Chunk] = []
+    for page_number, text in pages:
+        for index, piece in enumerate(chunk_text(text, size, overlap)):
+            chunks.append(
+                Chunk(
+                    text=piece,
+                    source_file=source_file,
+                    page_number=page_number,
+                    chunk_id=f"{source_file}::p{page_number}::c{index}",
+                )
+            )
+    return chunks
