@@ -1,6 +1,11 @@
 from dataclasses import replace
+from typing import Protocol
 
 from rag.models import RetrievedChunk
+
+
+class Retriever(Protocol):
+    def search(self, query: str, k: int) -> list[RetrievedChunk]: ...
 
 
 def reciprocal_rank_fusion(
@@ -14,3 +19,18 @@ def reciprocal_rank_fusion(
             first_seen.setdefault(chunk.chunk_id, chunk)
     order = sorted(scores, key=lambda cid: (-scores[cid], cid))
     return [replace(first_seen[cid], score=scores[cid]) for cid in order[:top_n]]
+
+
+class HybridRetriever:
+    def __init__(self, dense: Retriever, bm25: Retriever) -> None:
+        self._dense = dense
+        self._bm25 = bm25
+
+    def retrieve(
+        self, query: str, k_each: int = 20, top_n: int = 5
+    ) -> list[RetrievedChunk]:
+        ranked_lists = [
+            self._dense.search(query, k_each),
+            self._bm25.search(query, k_each),
+        ]
+        return reciprocal_rank_fusion(ranked_lists, top_n=top_n)
