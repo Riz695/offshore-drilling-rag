@@ -16,3 +16,4 @@ class RetrievedChunk:
     page_number: int
     chunk_id: str
     score: float
+    dense_score: float | None = None
