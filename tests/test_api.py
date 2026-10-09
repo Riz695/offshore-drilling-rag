@@ -170,3 +170,55 @@ def test_no_dense_scores_at_all_refuses(client: TestClient) -> None:
     resp = client.post("/query", json={"question": "q"})
     assert resp.json()["answer"] == REFUSAL_MESSAGE
     assert llm.calls == []
+
+
+# --- code-side citation check -------------------------------------------------
+
+
+def ask(client: TestClient, answer: str, chunks: list[RetrievedChunk]) -> dict:
+    use(FakeRetriever(chunks), FakeLLM(answer))
+    return client.post("/query", json={"question": "q"}).json()
+
+
+def test_valid_citation_passes_through(client: TestClient) -> None:
+    body = ask(client, "Seals the well [manual.pdf p.3].", [rc("a", page=3)])
+    assert body["answer"] == "Seals the well [manual.pdf p.3]."
+    assert len(body["sources"]) == 1
+
+
+def test_stray_bracket_before_answer_still_passes(client: TestClient) -> None:
+    answer = "[BOP stands for Blowout Preventer [manual.pdf p.3]."
+    assert ask(client, answer, [rc("a", page=3)])["answer"] == answer
+
+
+def test_citing_a_page_that_was_not_retrieved_is_refused(client: TestClient) -> None:
+    body = ask(client, "Seals the well [manual.pdf p.99].", [rc("a", page=3)])
+    assert body == {"answer": REFUSAL_MESSAGE, "sources": []}
+
+
+def test_citing_a_file_that_was_not_retrieved_is_refused(client: TestClient) -> None:
+    body = ask(client, "Seals the well [other.pdf p.3].", [rc("a", page=3)])
+    assert body == {"answer": REFUSAL_MESSAGE, "sources": []}
+
+
+def test_one_bad_citation_among_good_ones_is_refused(client: TestClient) -> None:
+    answer = "A [manual.pdf p.3]. B [manual.pdf p.99]."
+    body = ask(client, answer, [rc("a", page=3)])
+    assert body["answer"] == REFUSAL_MESSAGE
+
+
+def test_answer_without_any_citation_is_refused(client: TestClient) -> None:
+    body = ask(client, "A BOP seals the well.", [rc("a", page=3)])
+    assert body == {"answer": REFUSAL_MESSAGE, "sources": []}
+
+
+def test_model_refusal_with_trailing_period_returns_clean_refusal(
+    client: TestClient,
+) -> None:
+    body = ask(client, REFUSAL_MESSAGE + ".", [rc("a", page=3)])
+    assert body == {"answer": REFUSAL_MESSAGE, "sources": []}
+
+
+def test_numeric_citation_is_not_accepted(client: TestClient) -> None:
+    body = ask(client, "Seals the well [1].", [rc("a", page=3)])
+    assert body["answer"] == REFUSAL_MESSAGE
