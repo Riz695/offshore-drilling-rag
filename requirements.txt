@@ -1,0 +1,14 @@
+pytest>=8.0.0
+pypdf>=4.0.0
+pdfplumber>=0.11.0
+tiktoken>=0.7.0
+typing-extensions>=4.10.0
+chromadb
+sentence-transformers
+rank-bm25
+fastapi
+uvicorn
+httpx
+streamlit
+requests
+ollama

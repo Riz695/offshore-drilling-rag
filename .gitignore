@@ -1,0 +1,12 @@
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+
+# Generated data (rebuilt by scripts/ingest.py)
+data/chroma/
+data/bm25.pkl
+
+# Source PDFs are large and may be licensed, so keep them out of the repo
+data/raw_manuals/*.pdf
