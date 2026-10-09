@@ -1,3 +1,4 @@
+import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Protocol
@@ -75,6 +76,16 @@ def is_relevant(chunks: list[RetrievedChunk]) -> bool:
     )
 
 
+CITATION_RE = re.compile(r"\[([^\[\]]+?) p\.(\d+)\]")
+
+
+def citations_valid(answer: str, chunks: list[RetrievedChunk]) -> bool:
+    """True if the answer cites at least once and every cite is a retrieved chunk."""
+    cited = {(f, int(p)) for f, p in CITATION_RE.findall(answer)}
+    allowed = {(c.source_file, c.page_number) for c in chunks}
+    return bool(cited) and cited <= allowed
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -93,4 +104,6 @@ def query(
         answer = llm.generate(SYSTEM_PROMPT, build_prompt(req.question, chunks))
     except LLMError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if REFUSAL_MESSAGE in answer or not citations_valid(answer, chunks):
+        return QueryResponse(answer=REFUSAL_MESSAGE, sources=[])
     return QueryResponse(answer=answer, sources=[to_source(c) for c in chunks])

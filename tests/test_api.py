@@ -82,7 +82,7 @@ def test_sources_have_required_fields(client: TestClient) -> None:
 
 
 def test_sources_come_from_retrieval_not_llm(client: TestClient) -> None:
-    use(FakeRetriever([rc("a")]), FakeLLM(answer="see [fake.pdf p.99]"))
+    use(FakeRetriever([rc("a")]), FakeLLM(answer="see [manual.pdf p.3]"))
     sources = client.post("/query", json={"question": "q"}).json()["sources"]
     assert [s["chunk_id"] for s in sources] == ["a"]
 
