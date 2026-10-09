@@ -64,6 +64,33 @@ def test_search_ranks_most_similar_first_with_descending_scores(
     assert scores == sorted(scores, reverse=True)
 
 
+def test_score_is_cosine_similarity_of_known_vectors(tmp_path: Path) -> None:
+    vectors: dict[str, list[float]] = {
+        "query": [1.0, 0.0],
+        "same": [2.0, 0.0],  # same direction, different length -> 1.0
+        "diagonal": [1.0, 1.0],  # 45 degrees -> cos = 1/sqrt(2)
+        "orthogonal": [0.0, 1.0],  # 90 degrees -> 0.0
+    }
+
+    def embed(texts: list[str]) -> list[list[float]]:
+        return [vectors[t] for t in texts]
+
+    store = VectorStore(persist_dir=tmp_path / "chroma", embed_fn=embed)
+    store.add(
+        [
+            make_chunk("same", page=1),
+            make_chunk("diagonal", page=2),
+            make_chunk("orthogonal", page=3),
+        ]
+    )
+
+    scores = {r.text: r.score for r in store.search("query", k=3)}
+
+    assert scores["same"] == pytest.approx(1.0, abs=1e-4)
+    assert scores["diagonal"] == pytest.approx(2**-0.5, abs=1e-4)
+    assert scores["orthogonal"] == pytest.approx(0.0, abs=1e-4)
+
+
 def test_search_respects_k(store: VectorStore, chunks: list[Chunk]) -> None:
     store.add(chunks)
     assert len(store.search("crane", k=2)) == 2
