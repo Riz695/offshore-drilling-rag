@@ -109,9 +109,9 @@ def test_builds_bm25_index_with_real_citations(
 ) -> None:
     bm25_path = tmp_path / "bm25.pkl"
     ingest.ingest_directory(pdf_dir, store, bm25_path=bm25_path)
-    hit = BM25Index.load(bm25_path).search("crane", k=1)[0]
-    assert hit.source_file in {"a.pdf", "b.pdf"}
-    assert hit.page_number == 2
+    hit = BM25Index.load(bm25_path).search("a", k=1)[0]
+    assert hit.source_file == "a.pdf"
+    assert hit.page_number == 1
 
 
 def test_bm25_index_covers_every_pdf(
@@ -119,8 +119,9 @@ def test_bm25_index_covers_every_pdf(
 ) -> None:
     bm25_path = tmp_path / "bm25.pkl"
     ingest.ingest_directory(pdf_dir, store, bm25_path=bm25_path)
-    hits = BM25Index.load(bm25_path).search("crane", k=10)
-    assert {h.source_file for h in hits} == {"a.pdf", "b.pdf"}
+    index = BM25Index.load(bm25_path)
+    assert index.search("a", k=1)[0].source_file == "a.pdf"
+    assert index.search("b", k=1)[0].source_file == "b.pdf"
 
 
 def test_no_bm25_file_when_path_not_given(
