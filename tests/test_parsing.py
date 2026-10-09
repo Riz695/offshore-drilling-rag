@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from conftest import RAW_MANUALS_DIR
-from rag.parsing import parse_pdf, table_to_markdown
+from rag.parsing import is_real_table, parse_pdf, strip_repeated_lines, table_to_markdown
 
 
 def test_table_to_markdown_builds_header_separator_and_rows() -> None:
@@ -33,6 +33,57 @@ def test_table_to_markdown_flattens_newlines_inside_cells() -> None:
 
 def test_table_to_markdown_returns_empty_string_for_no_rows() -> None:
     assert table_to_markdown([]) == ""
+
+
+def test_is_real_table_accepts_multi_column_table_with_content() -> None:
+    assert is_real_table([["Zone", "Class"], ["1", "A"]])
+
+
+def test_is_real_table_rejects_single_column_title_box() -> None:
+    assert not is_real_table([[""], ["Section 1.0 Prerequisite Material 4/68"], [""]])
+
+
+def test_is_real_table_rejects_table_with_only_empty_cells() -> None:
+    assert not is_real_table([["", None], [None, ""]])
+
+
+def test_is_real_table_rejects_no_rows() -> None:
+    assert not is_real_table([])
+
+
+def _pages(lines_per_page: list[list[str]]) -> list[tuple[int, str]]:
+    return [(i, "\n".join(lines)) for i, lines in enumerate(lines_per_page, start=1)]
+
+
+def test_strip_repeated_lines_removes_header_found_on_most_pages() -> None:
+    header = "Weatherford confidential header"
+    pages = _pages([[header, f"body {i}"] for i in range(10)])
+    result = strip_repeated_lines(pages)
+    assert all(header not in text for _, text in result)
+    assert [text for _, text in result] == [f"body {i}" for i in range(10)]
+
+
+def test_strip_repeated_lines_keeps_page_numbers() -> None:
+    pages = _pages([["header", f"body {i}"] for i in range(10)])
+    assert [n for n, _ in strip_repeated_lines(pages)] == list(range(1, 11))
+
+
+def test_strip_repeated_lines_keeps_lines_that_are_not_widespread() -> None:
+    pages = _pages([["header", f"body {i}"] for i in range(10)])
+    pages[3] = (4, "header\nunique warning text")
+    result = dict(strip_repeated_lines(pages))
+    assert result[4] == "unique warning text"
+    assert "unique" not in result[1]
+
+
+def test_strip_repeated_lines_leaves_short_documents_alone() -> None:
+    pages = _pages([["header", "a"], ["header", "b"]])
+    assert strip_repeated_lines(pages) == pages
+
+
+def test_strip_repeated_lines_ignores_blank_lines() -> None:
+    pages = _pages([["", f"body {i}", ""] for i in range(10)])
+    assert [text for _, text in strip_repeated_lines(pages)][0].count("body") == 1
 
 
 @pytest.mark.integration
