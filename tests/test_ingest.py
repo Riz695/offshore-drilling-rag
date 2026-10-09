@@ -4,6 +4,7 @@ from types import ModuleType
 
 import pytest
 
+from rag.bm25_index import BM25Index
 from rag.vector_store import VectorStore
 from tests.test_vector_store import fake_embed
 
@@ -101,3 +102,29 @@ def test_warns_when_pdf_yields_no_chunks(
     assert counts["b.pdf"] == 0
     assert "WARNING" in out and "b.pdf" in out
     assert "WARNING" not in out.split("b.pdf")[0]
+
+
+def test_builds_bm25_index_with_real_citations(
+    ingest: ModuleType, store: VectorStore, pdf_dir: Path, tmp_path: Path
+) -> None:
+    bm25_path = tmp_path / "bm25.pkl"
+    ingest.ingest_directory(pdf_dir, store, bm25_path=bm25_path)
+    hit = BM25Index.load(bm25_path).search("crane", k=1)[0]
+    assert hit.source_file in {"a.pdf", "b.pdf"}
+    assert hit.page_number == 2
+
+
+def test_bm25_index_covers_every_pdf(
+    ingest: ModuleType, store: VectorStore, pdf_dir: Path, tmp_path: Path
+) -> None:
+    bm25_path = tmp_path / "bm25.pkl"
+    ingest.ingest_directory(pdf_dir, store, bm25_path=bm25_path)
+    hits = BM25Index.load(bm25_path).search("crane", k=10)
+    assert {h.source_file for h in hits} == {"a.pdf", "b.pdf"}
+
+
+def test_no_bm25_file_when_path_not_given(
+    ingest: ModuleType, store: VectorStore, pdf_dir: Path, tmp_path: Path
+) -> None:
+    ingest.ingest_directory(pdf_dir, store)
+    assert not list(tmp_path.glob("*.pkl"))
