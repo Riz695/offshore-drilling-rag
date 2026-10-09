@@ -10,3 +10,8 @@ data/bm25.pkl
 
 # Source PDFs are large and may be licensed, so keep them out of the repo
 data/raw_manuals/*.pdf
+
+# Working docs kept locally only (not published)
+CLAUDE.md
+PLAN.md
+learning_notes.txt

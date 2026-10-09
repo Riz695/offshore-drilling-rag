@@ -84,8 +84,6 @@ The fused RRF score is only an ordering. To decide whether the manuals are relev
 
 ### 1. Clone and install
 
-The repository is private, so you need access to it.
-
 ```bash
 git clone https://github.com/Riz695/offshore-drilling-rag.git
 cd offshore-drilling-rag
@@ -168,3 +166,7 @@ data/bm25.pkl       generated keyword index (git-ignored)
 PLAN.md             phase plan
 learning_notes.txt  running log of concepts and decisions
 ```
+
+## License
+
+MIT. See [LICENSE](LICENSE).
