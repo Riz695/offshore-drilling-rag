@@ -3,19 +3,22 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
-from rag.api import app, get_llm, get_retriever
+from rag.api import MIN_DENSE_SCORE, app, get_llm, get_retriever
 from rag.llm import LLMError
 from rag.models import RetrievedChunk
 from rag.prompt import REFUSAL_MESSAGE
 
 
-def rc(chunk_id: str, page: int = 3) -> RetrievedChunk:
+def rc(
+    chunk_id: str, page: int = 3, dense_score: float | None = 0.8
+) -> RetrievedChunk:
     return RetrievedChunk(
         text=f"text of {chunk_id}",
         source_file="manual.pdf",
         page_number=page,
         chunk_id=chunk_id,
         score=0.8,
+        dense_score=dense_score,
     )
 
 
@@ -132,3 +135,38 @@ def test_llm_failure_is_503_with_message(client: TestClient) -> None:
     resp = client.post("/query", json={"question": "q"})
     assert resp.status_code == 503
     assert "ollama is not running" in resp.json()["detail"]
+
+
+def test_low_dense_score_refuses_without_calling_llm(client: TestClient) -> None:
+    llm = FakeLLM()
+    weak = rc("a", dense_score=MIN_DENSE_SCORE - 0.01)
+    use(FakeRetriever([weak]), llm)
+    resp = client.post("/query", json={"question": "capital of France?"})
+    assert resp.status_code == 200
+    assert resp.json() == {"answer": REFUSAL_MESSAGE, "sources": []}
+    assert llm.calls == []
+
+
+def test_dense_score_at_threshold_is_answered(client: TestClient) -> None:
+    llm = FakeLLM()
+    use(FakeRetriever([rc("a", dense_score=MIN_DENSE_SCORE)]), llm)
+    resp = client.post("/query", json={"question": "q"})
+    assert len(llm.calls) == 1
+    assert resp.json()["answer"] == llm.answer
+
+
+def test_one_strong_chunk_is_enough(client: TestClient) -> None:
+    llm = FakeLLM()
+    chunks = [rc("a", dense_score=0.1), rc("b", dense_score=0.9)]
+    use(FakeRetriever(chunks), llm)
+    resp = client.post("/query", json={"question": "q"})
+    assert len(llm.calls) == 1
+    assert len(resp.json()["sources"]) == 2
+
+
+def test_no_dense_scores_at_all_refuses(client: TestClient) -> None:
+    llm = FakeLLM()
+    use(FakeRetriever([rc("a", dense_score=None)]), llm)
+    resp = client.post("/query", json={"question": "q"})
+    assert resp.json()["answer"] == REFUSAL_MESSAGE
+    assert llm.calls == []

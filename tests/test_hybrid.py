@@ -103,3 +103,26 @@ def test_hybrid_respects_top_n() -> None:
     dense = StubRetriever([rc("a"), rc("b"), rc("c")])
     bm25 = StubRetriever([rc("d")])
     assert len(HybridRetriever(dense, bm25).retrieve("q", top_n=2)) == 2
+
+
+def test_hybrid_copies_dense_score_from_dense_list() -> None:
+    dense = StubRetriever([rc("a", score=0.83), rc("b", score=0.61)])
+    bm25 = StubRetriever([rc("b", score=9.0)])
+    fused = {c.chunk_id: c for c in HybridRetriever(dense, bm25).retrieve("q")}
+    assert fused["a"].dense_score == pytest.approx(0.83)
+    assert fused["b"].dense_score == pytest.approx(0.61)
+
+
+def test_hybrid_dense_score_is_none_when_only_bm25_found_chunk() -> None:
+    dense = StubRetriever([rc("a", score=0.83)])
+    bm25 = StubRetriever([rc("z", score=4.0)])
+    fused = {c.chunk_id: c for c in HybridRetriever(dense, bm25).retrieve("q")}
+    assert fused["z"].dense_score is None
+
+
+def test_hybrid_score_stays_the_rrf_score() -> None:
+    dense = StubRetriever([rc("a", score=0.83)])
+    bm25 = StubRetriever([rc("a", score=4.0)])
+    fused = HybridRetriever(dense, bm25).retrieve("q")
+    assert fused[0].score == pytest.approx(2 / 61)
+    assert fused[0].dense_score == pytest.approx(0.83)
