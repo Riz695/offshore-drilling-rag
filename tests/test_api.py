@@ -81,6 +81,23 @@ def test_sources_have_required_fields(client: TestClient) -> None:
     assert source["score"] == pytest.approx(0.8)
 
 
+def test_excerpt_is_the_full_chunk_text_not_truncated(client: TestClient) -> None:
+    # The cited sentence can sit anywhere in a ~500-token chunk, so cutting the
+    # excerpt hides the evidence the user is supposed to check.
+    long_text = "intro " * 200 + "A blowout is the uncontrolled flow of oil."
+    chunk = RetrievedChunk(
+        text=long_text,
+        source_file="manual.pdf",
+        page_number=3,
+        chunk_id="a",
+        score=0.8,
+        dense_score=0.8,
+    )
+    use(FakeRetriever([chunk]), FakeLLM())
+    source = client.post("/query", json={"question": "q"}).json()["sources"][0]
+    assert source["excerpt"] == long_text
+
+
 def test_sources_come_from_retrieval_not_llm(client: TestClient) -> None:
     use(FakeRetriever([rc("a")]), FakeLLM(answer="see [manual.pdf p.3]"))
     sources = client.post("/query", json={"question": "q"}).json()["sources"]
