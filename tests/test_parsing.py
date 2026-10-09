@@ -51,25 +51,31 @@ def test_is_real_table_rejects_no_rows() -> None:
     assert not is_real_table([])
 
 
+WORDS: list[str] = [
+    "alpha", "bravo", "charlie", "delta", "echo",
+    "foxtrot", "golf", "hotel", "india", "juliet",
+]
+
+
 def _pages(lines_per_page: list[list[str]]) -> list[tuple[int, str]]:
     return [(i, "\n".join(lines)) for i, lines in enumerate(lines_per_page, start=1)]
 
 
 def test_strip_repeated_lines_removes_header_found_on_most_pages() -> None:
     header = "Weatherford confidential header"
-    pages = _pages([[header, f"body {i}"] for i in range(10)])
+    pages = _pages([[header, WORDS[i]] for i in range(10)])
     result = strip_repeated_lines(pages)
     assert all(header not in text for _, text in result)
-    assert [text for _, text in result] == [f"body {i}" for i in range(10)]
+    assert [text for _, text in result] == WORDS
 
 
 def test_strip_repeated_lines_keeps_page_numbers() -> None:
-    pages = _pages([["header", f"body {i}"] for i in range(10)])
+    pages = _pages([["header", WORDS[i]] for i in range(10)])
     assert [n for n, _ in strip_repeated_lines(pages)] == list(range(1, 11))
 
 
 def test_strip_repeated_lines_keeps_lines_that_are_not_widespread() -> None:
-    pages = _pages([["header", f"body {i}"] for i in range(10)])
+    pages = _pages([["header", WORDS[i]] for i in range(10)])
     pages[3] = (4, "header\nunique warning text")
     result = dict(strip_repeated_lines(pages))
     assert result[4] == "unique warning text"
@@ -82,8 +88,8 @@ def test_strip_repeated_lines_leaves_short_documents_alone() -> None:
 
 
 def test_strip_repeated_lines_ignores_blank_lines() -> None:
-    pages = _pages([["", f"body {i}", ""] for i in range(10)])
-    assert [text for _, text in strip_repeated_lines(pages)][0].count("body") == 1
+    pages = _pages([["", WORDS[i], ""] for i in range(10)])
+    assert [text for _, text in strip_repeated_lines(pages)] == WORDS
 
 
 @pytest.mark.integration
@@ -96,3 +102,21 @@ def test_parse_pdf_returns_numbered_pages_with_a_markdown_table() -> None:
     assert all(isinstance(text, str) for _, text in pages)
     assert any(text.strip() for _, text in pages)
     assert any("| --- |" in text for _, text in pages)
+
+
+def test_strip_repeated_lines_removes_footer_whose_page_number_changes() -> None:
+    words = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel"]
+    pages = _pages(
+        [[f"{w} text", f"For training only    Page {n} of 205"] for n, w in enumerate(words, 1)]
+    )
+    result = strip_repeated_lines(pages)
+    assert [text for _, text in result] == [f"{w} text" for w in words]
+
+
+def test_strip_repeated_lines_keeps_numeric_lines_that_are_not_widespread() -> None:
+    pages = _pages([["common header", f"filler {c}"] for c in "abcdefghij"])
+    pages[2] = (3, "common header\nPressure is 5 psi")
+    pages[6] = (7, "common header\nPressure is 9 psi")
+    result = dict(strip_repeated_lines(pages))
+    assert result[3] == "Pressure is 5 psi"
+    assert result[7] == "Pressure is 9 psi"

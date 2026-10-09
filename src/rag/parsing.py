@@ -1,3 +1,4 @@
+import re
 from collections import Counter
 from pathlib import Path
 
@@ -39,6 +40,11 @@ def extract_page(plumber_page: Page, pypdf_page: PageObject) -> str:
     return "\n\n".join([text, *tables]).strip()
 
 
+def _line_key(line: str) -> str:
+    """Normalise digits and spacing so 'Page 2 of 205' and 'Page 90 of 205' match."""
+    return re.sub(r"\d+", "#", " ".join(line.split()))
+
+
 def strip_repeated_lines(
     pages: list[tuple[int, str]], min_fraction: float = 0.5, min_pages: int = 5
 ) -> list[tuple[int, str]]:
@@ -47,10 +53,10 @@ def strip_repeated_lines(
         return pages
     seen_on: Counter[str] = Counter()
     for _, text in pages:
-        seen_on.update({line.strip() for line in text.splitlines() if line.strip()})
-    boilerplate = {line for line, n in seen_on.items() if n / len(pages) >= min_fraction}
+        seen_on.update({_line_key(ln) for ln in text.splitlines() if ln.strip()})
+    boilerplate = {key for key, n in seen_on.items() if n / len(pages) >= min_fraction}
     return [
-        (number, "\n".join(ln for ln in text.splitlines() if ln.strip() not in boilerplate).strip())
+        (number, "\n".join(ln for ln in text.splitlines() if _line_key(ln) not in boilerplate).strip())
         for number, text in pages
     ]
 
