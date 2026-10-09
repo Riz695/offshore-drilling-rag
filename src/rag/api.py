@@ -15,6 +15,8 @@ from rag.vector_store import VectorStore, make_hf_embed_fn
 ROOT = Path(__file__).resolve().parents[2]
 EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
 EXCERPT_CHARS = 300
+# Observed cosine: ~0.49 off-topic, 0.73-0.86 on-topic. Tune on real queries.
+MIN_DENSE_SCORE = 0.6
 
 app = FastAPI(title="Offshore Drilling RAG")
 
@@ -67,6 +69,12 @@ def to_source(chunk: RetrievedChunk) -> Source:
     )
 
 
+def is_relevant(chunks: list[RetrievedChunk]) -> bool:
+    return any(
+        c.dense_score is not None and c.dense_score >= MIN_DENSE_SCORE for c in chunks
+    )
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -79,7 +87,7 @@ def query(
     llm: LLMLike = Depends(get_llm),
 ) -> QueryResponse:
     chunks = retriever.retrieve(req.question, top_n=req.top_n)
-    if not chunks:
+    if not is_relevant(chunks):
         return QueryResponse(answer=REFUSAL_MESSAGE, sources=[])
     try:
         answer = llm.generate(SYSTEM_PROMPT, build_prompt(req.question, chunks))
