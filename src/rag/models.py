@@ -7,3 +7,12 @@ class Chunk:
     source_file: str
     page_number: int
     chunk_id: str
+
+
+@dataclass(frozen=True)
+class RetrievedChunk:
+    text: str
+    source_file: str
+    page_number: int
+    chunk_id: str
+    score: float
