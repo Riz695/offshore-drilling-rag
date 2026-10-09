@@ -83,3 +83,21 @@ def test_empty_directory_returns_nothing(
     empty.mkdir()
     assert ingest.ingest_directory(empty, store) == {}
     assert store.count() == 0
+
+
+def test_warns_when_pdf_yields_no_chunks(
+    ingest: ModuleType,
+    store: VectorStore,
+    pdf_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def scanned_parse(path: Path, max_pages: int | None = None) -> list[tuple[int, str]]:
+        return [(1, ""), (2, "")] if path.name == "b.pdf" else [(1, "bop riser")]
+
+    monkeypatch.setattr(ingest, "parse_pdf", scanned_parse)
+    counts = ingest.ingest_directory(pdf_dir, store)
+    out = capsys.readouterr().out
+    assert counts["b.pdf"] == 0
+    assert "WARNING" in out and "b.pdf" in out
+    assert "WARNING" not in out.split("b.pdf")[0]

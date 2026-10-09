@@ -28,6 +28,12 @@ def ingest_directory(input_dir: Path, store: VectorStore) -> dict[str, int]:
             f"({time.time() - started:.1f}s)",
             flush=True,
         )
+        if not chunks:
+            print(
+                f"WARNING: {pdf_path.name} produced 0 chunks; it may be a scanned "
+                "PDF with no text layer (needs OCR) and is NOT searchable.",
+                flush=True,
+            )
     return counts
 
 
