@@ -15,7 +15,6 @@ from rag.vector_store import VectorStore, make_hf_embed_fn
 
 ROOT = Path(__file__).resolve().parents[2]
 EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
-EXCERPT_CHARS = 300
 # Observed cosine: ~0.49 off-topic, 0.73-0.86 on-topic. Tune on real queries.
 MIN_DENSE_SCORE = 0.6
 
@@ -65,7 +64,7 @@ def to_source(chunk: RetrievedChunk) -> Source:
         source_file=chunk.source_file,
         page_number=chunk.page_number,
         chunk_id=chunk.chunk_id,
-        excerpt=chunk.text[:EXCERPT_CHARS],
+        excerpt=chunk.text,
         score=chunk.score,
     )
 
