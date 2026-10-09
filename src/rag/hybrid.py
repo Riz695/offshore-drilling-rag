@@ -29,8 +29,10 @@ class HybridRetriever:
     def retrieve(
         self, query: str, k_each: int = 20, top_n: int = 5
     ) -> list[RetrievedChunk]:
-        ranked_lists = [
-            self._dense.search(query, k_each),
-            self._bm25.search(query, k_each),
+        dense_results = self._dense.search(query, k_each)
+        ranked_lists = [dense_results, self._bm25.search(query, k_each)]
+        dense_scores = {c.chunk_id: c.score for c in dense_results}
+        fused = reciprocal_rank_fusion(ranked_lists, top_n=top_n)
+        return [
+            replace(c, dense_score=dense_scores.get(c.chunk_id)) for c in fused
         ]
-        return reciprocal_rank_fusion(ranked_lists, top_n=top_n)
