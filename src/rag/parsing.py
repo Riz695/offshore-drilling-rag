@@ -1,3 +1,4 @@
+from collections import Counter
 from pathlib import Path
 
 import pdfplumber
@@ -23,10 +24,35 @@ def table_to_markdown(rows: list[list[str | None]]) -> str:
     return "\n".join(lines)
 
 
+def is_real_table(rows: list[list[str | None]]) -> bool:
+    """Real tables have 2+ columns and some text; title boxes and empties do not."""
+    if not any(len(row) >= 2 for row in rows):
+        return False
+    return any(_clean_cell(cell) for row in rows for cell in row)
+
+
 def extract_page(plumber_page: Page, pypdf_page: PageObject) -> str:
     text = (pypdf_page.extract_text() or "").strip()
-    tables = [table_to_markdown(t) for t in plumber_page.extract_tables()]
+    tables = [
+        table_to_markdown(t) for t in plumber_page.extract_tables() if is_real_table(t)
+    ]
     return "\n\n".join([text, *tables]).strip()
+
+
+def strip_repeated_lines(
+    pages: list[tuple[int, str]], min_fraction: float = 0.5, min_pages: int = 5
+) -> list[tuple[int, str]]:
+    """Drop lines repeated on most pages (running headers/footers), keep page numbers."""
+    if len(pages) < min_pages:
+        return pages
+    seen_on: Counter[str] = Counter()
+    for _, text in pages:
+        seen_on.update({line.strip() for line in text.splitlines() if line.strip()})
+    boilerplate = {line for line, n in seen_on.items() if n / len(pages) >= min_fraction}
+    return [
+        (number, "\n".join(ln for ln in text.splitlines() if ln.strip() not in boilerplate).strip())
+        for number, text in pages
+    ]
 
 
 def parse_pdf(path: Path, max_pages: int | None = None) -> list[tuple[int, str]]:
@@ -39,4 +65,4 @@ def parse_pdf(path: Path, max_pages: int | None = None) -> list[tuple[int, str]]
             if max_pages is not None and number > max_pages:
                 break
             pages.append((number, extract_page(plumber_page, pypdf_page)))
-    return pages
+    return strip_repeated_lines(pages)
