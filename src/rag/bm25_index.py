@@ -1,7 +1,40 @@
 import re
 
+from rank_bm25 import BM25Okapi
+
+from rag.models import Chunk, RetrievedChunk
+
 TOKEN_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 
 
 def tokenize(text: str) -> list[str]:
     return TOKEN_PATTERN.findall(text.lower())
+
+
+class BM25Index:
+    def __init__(self, chunks: list[Chunk], bm25: BM25Okapi | None) -> None:
+        self._chunks = chunks
+        self._bm25 = bm25
+
+    @classmethod
+    def build(cls, chunks: list[Chunk]) -> "BM25Index":
+        if not chunks:
+            return cls([], None)
+        return cls(chunks, BM25Okapi([tokenize(c.text) for c in chunks]))
+
+    def search(self, query: str, k: int) -> list[RetrievedChunk]:
+        if self._bm25 is None:
+            return []
+        scores = self._bm25.get_scores(tokenize(query))
+        ranked = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
+        return [
+            RetrievedChunk(
+                text=self._chunks[i].text,
+                source_file=self._chunks[i].source_file,
+                page_number=self._chunks[i].page_number,
+                chunk_id=self._chunks[i].chunk_id,
+                score=float(scores[i]),
+            )
+            for i in ranked[:k]
+            if scores[i] > 0
+        ]
