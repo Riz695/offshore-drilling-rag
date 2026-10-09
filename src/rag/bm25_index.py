@@ -1,4 +1,6 @@
+import pickle
 import re
+from pathlib import Path
 
 from rank_bm25 import BM25Okapi
 
@@ -38,3 +40,14 @@ class BM25Index:
             for i in ranked[:k]
             if scores[i] > 0
         ]
+
+    def save(self, path: Path) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("wb") as f:
+            pickle.dump((self._chunks, self._bm25), f)
+
+    @classmethod
+    def load(cls, path: Path) -> "BM25Index":
+        with path.open("rb") as f:
+            chunks, bm25 = pickle.load(f)
+        return cls(chunks, bm25)
