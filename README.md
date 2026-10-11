@@ -153,6 +153,24 @@ python -m pytest tests -m "not integration" # fast tests only
 
 `pytest.ini` sets the import path, so no `PYTHONPATH` is needed for tests. The unit tests use a fake embedder and a stub LLM, so they need neither Ollama nor model downloads; only the tests marked `integration` do.
 
+## Deploying to Hugging Face Spaces
+
+This repository always uses Ollama. A Hugging Face Space cannot run Ollama, so the Space is deployed from a separate, local-only copy of the app that calls the Hugging Face Inference API instead. That copy is not committed here, so `main` stays Ollama-only.
+
+How the Space copy differs:
+
+- **LLM backend:** an `HFInferenceLLM` class implements the same `generate(system, user)` interface as `OllamaLLM`, and `get_llm()` in `api.py` returns it. It posts to the Inference Providers chat endpoint with `meta-llama/Llama-3.1-8B-Instruct` and `temperature: 0`.
+- **Token handling:** the token is never in code. The class reads the `HF_TOKEN` environment variable at call time, and the Space injects it from a repository secret (Space Settings, Variables and secrets). Create a fine-grained token with the "Make calls to Inference Providers" permission only, and do not reuse your login token. If `HF_TOKEN` is missing, the call raises `LLMError`, and error messages never contain the token.
+- **Packaging:** a Docker Space (`sdk: docker`, `app_port: 7860`). A start script runs FastAPI on `127.0.0.1:8000` in the background and Streamlit on port 7860, so the UI's existing backend URL still works. The `ollama` package is dropped from the Space's requirements, and the Space's `rag.llm` keeps only `LLMError`.
+- **Data:** the prebuilt `data/chroma` and `data/bm25.pkl` are uploaded with the app, so the Space does not re-ingest. The embedding model is downloaded at image build time.
+
+Notes:
+
+- Docker Spaces on the free `cpu-basic` tier require a Hugging Face PRO subscription. The Streamlit SDK can no longer be selected for new Spaces.
+- The index contains text from the manuals. Keep the Space private unless you are allowed to redistribute them.
+- Streamlit applies the text box only after Enter, so press Enter before clicking Ask.
+- After re-ingesting, copy the new `data/` into the Space copy and upload it again with `hf upload`.
+
 ## Repository layout
 
 ```
