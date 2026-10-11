@@ -108,3 +108,8 @@ def test_result_survives_rerun() -> None:
     assert post.call_count == 1
     assert any(OK_BODY["answer"] in m.value for m in at.markdown)
     assert len(at.expander) == 1
+
+
+def test_page_tells_user_to_press_enter() -> None:
+    at = new_app()
+    assert any("Enter" in c.value for c in at.caption)

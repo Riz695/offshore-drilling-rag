@@ -37,6 +37,7 @@ def render_result(result: dict[str, Any]) -> None:
 def main() -> None:
     st.title("Offshore Drilling Manuals")
     question = st.text_input("Ask a question about the manuals")
+    st.caption("Type your question, press Enter, then click Ask.")
     if st.button("Ask") and question.strip():
         with st.spinner("Searching manuals..."):
             st.session_state["result"] = fetch_answer(question.strip())
