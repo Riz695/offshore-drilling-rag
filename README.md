@@ -155,6 +155,8 @@ python -m pytest tests -m "not integration" # fast tests only
 
 ## Deploying to Hugging Face Spaces
 
+Live Space: https://huggingface.co/spaces/Riz695/offshore-drilling-rag (private, so you must be logged in to the owner's Hugging Face account to open it).
+
 This repository always uses Ollama. A Hugging Face Space cannot run Ollama, so the Space is deployed from a separate, local-only copy of the app that calls the Hugging Face Inference API instead. That copy is not committed here, so `main` stays Ollama-only.
 
 How the Space copy differs:
