@@ -2,7 +2,21 @@
 
 A local question-answering system over offshore drilling and maritime manuals. Every answer is built only from retrieved manual text and carries a citation to the source file and page number (`[Drilling_Manual.pdf p.12]`). If the manuals do not contain the answer, the system refuses instead of guessing.
 
-Everything runs on your own machine: no cloud API, no data leaves the computer.
+This repository runs entirely on your own machine: no cloud API, no data leaves the computer. A hosted demo (see [Deploying to Hugging Face Spaces](#deploying-to-hugging-face-spaces)) uses the Hugging Face Inference API instead of Ollama.
+
+## Status
+
+| Phase | Scope | State |
+|---|---|---|
+| 0 | Setup | Done |
+| 1 | Layout-aware parsing and chunking | Done |
+| 2 | Vector DB (ChromaDB + Hugging Face embeddings) | Done |
+| 3 | Hybrid search (BM25 + RRF) | Done |
+| 4 | FastAPI backend (`/query`, Ollama) | Done |
+| 5 | Streamlit frontend | Done |
+| 6 | Deployment to a Hugging Face Space (HF Inference API backend, per-session rate limit) | Done |
+
+One manual (`MarineOffshoreLogOpsManual.pdf`) is a scan with no text layer and is not indexed, so 5 of the 6 manuals are searchable.
 
 ## Design goals
 
@@ -155,7 +169,7 @@ python -m pytest tests -m "not integration" # fast tests only
 
 ## Deploying to Hugging Face Spaces
 
-Live Space: https://huggingface.co/spaces/Riz695/offshore-drilling-rag (private, so you must be logged in to the owner's Hugging Face account to open it).
+Live Space: https://huggingface.co/spaces/Riz695/offshore-drilling-rag (public). The demo limits each browser session to 5 questions per 10 minutes, and the Inference API token is a Space secret that visitors cannot see or use.
 
 This repository always uses Ollama. A Hugging Face Space cannot run Ollama, so the Space is deployed from a separate, local-only copy of the app that calls the Hugging Face Inference API instead. That copy is not committed here, so `main` stays Ollama-only.
 
@@ -169,7 +183,8 @@ How the Space copy differs:
 Notes:
 
 - Docker Spaces on the free `cpu-basic` tier require a Hugging Face PRO subscription. The Streamlit SDK can no longer be selected for new Spaces.
-- The index contains text from the manuals. Keep the Space private unless you are allowed to redistribute them.
+- The index contains text from the manuals. The Space is public because the manuals are free to share; make it private if that changes.
+- The rate limit lives in the Space copy only (`rag/rate_limit.py`, a sliding window kept in the Streamlit session). It stops casual overuse of the token, but reloading the page starts a new session.
 - Streamlit applies the text box only after Enter, so press Enter before clicking Ask.
 - After re-ingesting, copy the new `data/` into the Space copy and upload it again with `hf upload`.
 
